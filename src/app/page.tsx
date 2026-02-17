@@ -71,6 +71,10 @@ export default function Home() {
             Name a clearing, invite friends, and gather berries, mushrooms, or go for the deer if you
             dare. Pick quietly and hope no one spooks the woods.
           </p>
+          <p className="mt-3 text-sm text-emerald-200">
+            Each round everyone secretly chooses a snack (berries = 1 noise, mushrooms = 2, deer = 3).
+            If your table&apos;s total noise beats the scare limit, the forest panics and risky picks backfire.
+          </p>
         </header>
 
         <section className="grid gap-6 md:grid-cols-2">

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createBrowserClient } from '@/lib/supabase/browser';
 import { usePlayerId } from '@/lib/player-id';
-import type { Pick, Player, Room } from '@/lib/types';
+import type { Choice, Pick, Player, Room } from '@/lib/types';
 import { choices } from '@/lib/constants';
 
 interface Props {
@@ -94,11 +94,34 @@ export default function RoomClient({ code, displayName }: Props) {
 
   const makePick = async (choice: string) => {
     if (!playerId || phase !== 'picking' || !!myPick || !normalizedCode) return;
-    await fetch(`/api/rooms/${normalizedCode}/pick`, {
+
+    const optimisticPick: Pick = {
+      id: `local-${playerId}`,
+      player_id: playerId,
+      room_code: normalizedCode,
+      round: room?.round ?? 0,
+      choice: choice as Choice,
+      result: null,
+      created_at: new Date().toISOString(),
+    };
+
+    setPicks((prev) => ({ ...prev, [playerId]: optimisticPick }));
+
+    const res = await fetch(`/api/rooms/${normalizedCode}/pick`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ playerId, choice }),
     });
+
+    if (!res.ok) {
+      setPicks((prev) => {
+        const next = { ...prev };
+        delete next[playerId!];
+        return next;
+      });
+      const data = await res.json();
+      setError(data.error || 'Could not lock in pick');
+    }
   };
 
   if (!normalizedCode) {
