@@ -2,15 +2,16 @@ import RoomClient from './RoomClient';
 
 export const dynamic = 'force-dynamic';
 
-export default function RoomPage({
+export default async function RoomPage({
   params,
   searchParams,
 }: {
-  params: { code: string };
-  searchParams: { [key: string]: string | string[] | undefined };
+  params: Promise<{ code: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const code = params?.code || '';
-  const nameParam = searchParams?.name;
+  const { code = '' } = await params;
+  const resolvedSearch = await searchParams;
+  const nameParam = resolvedSearch?.name;
   const displayName = Array.isArray(nameParam) ? nameParam[0] ?? 'Player' : nameParam || 'Player';
 
   if (!code) {
