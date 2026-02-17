@@ -1,16 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { normalizeRoomName } from '@/lib/random';
 import type { Choice } from '@/lib/types';
 
-export async function POST(request: Request, { params }: { params: { code: string } }) {
+export async function POST(request: NextRequest, ctx: { params: Promise<{ code: string }> }) {
   const { playerId, choice } = (await request.json()) as { playerId?: string; choice?: Choice };
 
   if (!playerId || !choice) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
   }
 
-  const code = normalizeRoomName(params.code);
+  const { code: rawCode } = await ctx.params;
+  const code = normalizeRoomName(rawCode);
   const supabase = createServerClient();
 
   const { data: room } = await supabase.from('rooms').select('*').eq('code', code).maybeSingle();

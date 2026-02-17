@@ -1,15 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { normalizeRoomName, randomLimit, rollDice } from '@/lib/random';
 
-export async function POST(request: Request, { params }: { params: { code: string } }) {
+export async function POST(request: NextRequest, ctx: { params: Promise<{ code: string }> }) {
   const { playerId } = (await request.json()) as { playerId?: string };
 
   if (!playerId) {
     return NextResponse.json({ error: 'Missing playerId' }, { status: 400 });
   }
 
-  const code = normalizeRoomName(params.code);
+  const { code: rawCode } = await ctx.params;
+  const code = normalizeRoomName(rawCode);
   const supabase = createServerClient();
 
   const { data: room } = await supabase.from('rooms').select('*').eq('code', code).maybeSingle();
