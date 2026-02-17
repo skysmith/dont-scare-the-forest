@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createBrowserClient } from '@/lib/supabase/browser';
 import { usePlayerId } from '@/lib/player-id';
 import type { Choice, Pick, Player, Room } from '@/lib/types';
@@ -22,6 +22,21 @@ export default function RoomClient({ code, displayName }: Props) {
 
   const supabase = useMemo(() => createBrowserClient(), []);
   const roundRef = useRef(0);
+
+  const fetchState = useCallback(async () => {
+    if (!normalizedCode) return;
+    const [{ data: roomData }, { data: playerData }, { data: pickData }] = await Promise.all([
+      supabase.from('rooms').select('*').eq('code', normalizedCode).maybeSingle(),
+      supabase.from('players').select('*').eq('room_code', normalizedCode),
+      supabase.from('picks').select('*').eq('room_code', normalizedCode),
+    ]);
+    if (roomData) {
+      setRoom(roomData as Room);
+      roundRef.current = (roomData as Room).round;
+    }
+    if (playerData) setPlayers(playerData as Player[]);
+    if (pickData) setPicks(mapPicks(pickData as Pick[], roundRef.current));
+  }, [normalizedCode, supabase]);
   const amHost = room?.host_id === playerId;
   const phase = room?.phase ?? 'lobby';
   const playersReady = Object.keys(picks).length;
@@ -46,21 +61,8 @@ export default function RoomClient({ code, displayName }: Props) {
 
   useEffect(() => {
     if (!normalizedCode) return;
-    const load = async () => {
-      const [{ data: roomData }, { data: playerData }, { data: pickData }] = await Promise.all([
-        supabase.from('rooms').select('*').eq('code', normalizedCode).maybeSingle(),
-        supabase.from('players').select('*').eq('room_code', normalizedCode),
-        supabase.from('picks').select('*').eq('room_code', normalizedCode),
-      ]);
-      if (roomData) {
-        setRoom(roomData as Room);
-        roundRef.current = (roomData as Room).round;
-      }
-      if (playerData) setPlayers(playerData as Player[]);
-      if (pickData) setPicks(mapPicks(pickData as Pick[], roundRef.current));
-    };
-
-    load();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchState();
 
     const channel = supabase
       .channel(`room:${normalizedCode}`)
@@ -85,7 +87,7 @@ export default function RoomClient({ code, displayName }: Props) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, normalizedCode]);
+  }, [supabase, normalizedCode, fetchState]);
 
   const myPick = playerId ? picks[playerId] : undefined;
 
@@ -101,6 +103,8 @@ export default function RoomClient({ code, displayName }: Props) {
     if (!res.ok) {
       const data = await res.json();
       setError(data.error || `Failed to ${path}`);
+    } else {
+      await fetchState();
     }
     setLoadingAction(null);
   };
