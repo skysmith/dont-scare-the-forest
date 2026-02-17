@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createBrowserClient } from '@/lib/supabase/browser';
 import { usePlayerId } from '@/lib/player-id';
 import type { Choice, Pick, Player, Room } from '@/lib/types';
@@ -21,6 +21,7 @@ export default function RoomClient({ code, displayName }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const supabase = useMemo(() => createBrowserClient(), []);
+  const roundRef = useRef(0);
   const amHost = room?.host_id === playerId;
   const phase = room?.phase ?? 'lobby';
   const noiseMap: Record<string, number> = { berry: 1, mushroom: 2, deer: 3 };
@@ -42,6 +43,10 @@ export default function RoomClient({ code, displayName }: Props) {
   }, [playerId, normalizedCode, displayName]);
 
   useEffect(() => {
+    roundRef.current = room?.round ?? roundRef.current;
+  }, [room?.round]);
+
+  useEffect(() => {
     if (!normalizedCode) return;
     const load = async () => {
       const [{ data: roomData }, { data: playerData }, { data: pickData }] = await Promise.all([
@@ -49,9 +54,12 @@ export default function RoomClient({ code, displayName }: Props) {
         supabase.from('players').select('*').eq('room_code', normalizedCode),
         supabase.from('picks').select('*').eq('room_code', normalizedCode),
       ]);
-      if (roomData) setRoom(roomData as Room);
+      if (roomData) {
+        setRoom(roomData as Room);
+        roundRef.current = (roomData as Room).round;
+      }
       if (playerData) setPlayers(playerData as Player[]);
-      if (pickData) setPicks(mapPicks(pickData as Pick[]));
+      if (pickData) setPicks(mapPicks(pickData as Pick[], roundRef.current));
     };
 
     load();
@@ -67,7 +75,7 @@ export default function RoomClient({ code, displayName }: Props) {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'picks', filter: `room_code=eq.${normalizedCode}` }, async () => {
         const { data } = await supabase.from('picks').select('*').eq('room_code', normalizedCode);
-        if (data) setPicks(mapPicks(data as Pick[]));
+        if (data) setPicks(mapPicks(data as Pick[], roundRef.current));
       })
       .subscribe();
 
@@ -227,8 +235,9 @@ export default function RoomClient({ code, displayName }: Props) {
   );
 }
 
-function mapPicks(list: Pick[]) {
+function mapPicks(list: Pick[], round?: number) {
   return list.reduce<Record<string, Pick>>((acc, pick) => {
+    if (round !== undefined && pick.round !== round) return acc;
     acc[pick.player_id] = pick;
     return acc;
   }, {});
