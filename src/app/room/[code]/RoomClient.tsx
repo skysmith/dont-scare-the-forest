@@ -26,6 +26,8 @@ export default function RoomClient({ code, displayName }: Props) {
   const noiseMap: Record<string, number> = { berry: 1, mushroom: 2, deer: 3 };
   const totalNoise = Object.values(picks).reduce((sum, pick) => sum + (noiseMap[pick.choice] ?? 0), 0);
   const blewLimit = room?.limit_total != null && totalNoise > room.limit_total;
+  const playersWithPicks = Object.keys(picks).length;
+  const waitingCount = Math.max(players.length - playersWithPicks, 0);
 
   useEffect(() => {
     if (!playerId || !normalizedCode) return;
@@ -135,11 +137,14 @@ export default function RoomClient({ code, displayName }: Props) {
   return (
     <main className="min-h-screen bg-gradient-to-b from-emerald-950 via-slate-950 to-slate-950 text-emerald-50">
       <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10">
-        <header className="rounded-3xl border border-emerald-800/60 bg-emerald-950/50 p-6">
+        <header className="rounded-3xl border border-emerald-800/60 bg-emerald-950/50 p-6 space-y-2">
           <p className="text-sm uppercase tracking-[0.35em] text-amber-200">Room {normalizedCode}</p>
-          <h1 className="mt-1 text-3xl font-semibold">Round {room?.round ?? 0}</h1>
+          <h1 className="text-3xl font-semibold">Round {room?.round ?? 0}</h1>
           <p className="text-emerald-200">Phase: {phase}</p>
-          <div className="mt-4 flex flex-wrap gap-3">
+          {phase === 'picking' && waitingCount > 0 && (
+            <p className="text-sm text-amber-200">Waiting on {waitingCount} player{waitingCount === 1 ? '' : 's'}…</p>
+          )}
+          <div className="mt-2 flex flex-wrap gap-3">
             {amHost && (
               <>
                 <button
@@ -208,7 +213,9 @@ export default function RoomClient({ code, displayName }: Props) {
                   </p>
                   <p className="text-sm text-emerald-300">Score {player.score}</p>
                 </div>
-                <p className="text-xl text-amber-200">{picks[player.id]?.choice ?? '—'}</p>
+                <p className="text-xl text-amber-200">
+                  {player.id === playerId || phase !== 'picking' ? picks[player.id]?.choice ?? '—' : '⏳'}
+                </p>
               </div>
             </div>
           ))}

@@ -40,5 +40,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ code: 
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
+  await supabase.from('picks').delete().eq('room_code', code).eq('round', newRound);
+
   return NextResponse.json({ ok: true, dice, limit, round: newRound });
 }
