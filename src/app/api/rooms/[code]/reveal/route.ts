@@ -50,7 +50,10 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ code: 
     await supabase.from('players').update({ score: player.score + delta }).eq('id', player.id);
   }
 
-  await supabase.from('rooms').update({ phase: 'reveal' }).eq('code', code);
+  await supabase
+    .from('rooms')
+    .update({ phase: 'reveal', dice: null, limit_total: null })
+    .eq('code', code);
 
-  return NextResponse.json({ ok: true, fallback: true, blewLimit, totalNoise });
+  return NextResponse.json({ ok: true, fallback: true, blewLimit });
 }

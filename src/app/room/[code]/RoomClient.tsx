@@ -65,7 +65,12 @@ export default function RoomClient({ code, displayName }: Props) {
     const channel = supabase
       .channel(`room:${normalizedCode}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${normalizedCode}` }, (payload) => {
-        setRoom(payload.new as Room);
+        const updatedRoom = payload.new as Room;
+        if (roundRef.current !== updatedRoom.round) {
+          roundRef.current = updatedRoom.round;
+          setPicks({});
+        }
+        setRoom(updatedRoom);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `room_code=eq.${normalizedCode}` }, async () => {
         const { data } = await supabase.from('players').select('*').eq('room_code', normalizedCode);
