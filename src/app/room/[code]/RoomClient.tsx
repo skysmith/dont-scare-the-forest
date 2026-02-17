@@ -24,11 +24,9 @@ export default function RoomClient({ code, displayName }: Props) {
   const roundRef = useRef(0);
   const amHost = room?.host_id === playerId;
   const phase = room?.phase ?? 'lobby';
-  const noiseMap: Record<string, number> = { berry: 1, mushroom: 2, deer: 3 };
-  const totalNoise = Object.values(picks).reduce((sum, pick) => sum + (noiseMap[pick.choice] ?? 0), 0);
-  const blewLimit = room?.limit_total != null && totalNoise > room.limit_total;
-  const playersWithPicks = Object.keys(picks).length;
-  const waitingCount = Math.max(players.length - playersWithPicks, 0);
+  const playersReady = Object.keys(picks).length;
+  const waitingCount = Math.max(players.length - playersReady, 0);
+  const diceTotal = room?.dice?.reduce((sum, die) => sum + die, 0);
 
   useEffect(() => {
     if (!playerId || !normalizedCode) return;
@@ -177,16 +175,8 @@ export default function RoomClient({ code, displayName }: Props) {
         {room?.dice && (
           <section className="rounded-2xl border border-emerald-900 bg-slate-950/60 p-5 space-y-2">
             <p className="text-sm uppercase tracking-[0.3em] text-emerald-400">Forest dice</p>
-            <p className="text-3xl font-semibold text-amber-200">{room.dice.join(' · ')}</p>
+            <p className="text-3xl font-semibold text-amber-200">{room.dice.join(' · ')} <span className="text-sm text-emerald-300">= {diceTotal}</span></p>
             <p className="text-emerald-200">Scare limit: {room.limit_total}</p>
-            <div className="rounded-xl border border-emerald-800/60 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-200">
-              <p>Whispers this round: {totalNoise}</p>
-              {room.limit_total != null && (
-                <p className={blewLimit ? 'text-rose-300' : 'text-emerald-200'}>
-                  {blewLimit ? 'Too loud! The forest flinches.' : 'Still calm.'}
-                </p>
-              )}
-            </div>
           </section>
         )}
 
