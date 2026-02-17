@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
-import { normalizeRoomName, randomLimit, rollDice } from '@/lib/random';
+import { normalizeRoomName, rollDice, computeScareLimit } from '@/lib/random';
 
 export async function POST(request: NextRequest, ctx: { params: Promise<{ code: string }> }) {
   const { playerId } = (await request.json()) as { playerId?: string };
@@ -18,9 +18,15 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ code: 
   if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
   if (room.host_id !== playerId) return NextResponse.json({ error: 'Only host can start' }, { status: 403 });
 
+  const { count: playerCount } = await supabase
+    .from('players')
+    .select('*', { count: 'exact', head: true })
+    .eq('room_code', code);
+
+  const diceCount = Math.min(Math.max(playerCount || 1, 1), 5);
   const newRound = room.round + 1;
-  const dice = rollDice();
-  const limit = randomLimit();
+  const dice = rollDice(diceCount);
+  const limit = computeScareLimit(dice);
 
   const { error } = await supabase
     .from('rooms')

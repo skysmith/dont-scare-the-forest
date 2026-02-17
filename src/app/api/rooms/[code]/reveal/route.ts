@@ -27,20 +27,30 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ code: 
 
   if (!picks || !players) return NextResponse.json({ error: 'Missing picks' }, { status: 400 });
 
+  const noiseValues: Record<string, number> = { berry: 1, mushroom: 2, deer: 3 };
   const deerCount = picks.filter((p) => p.choice === 'deer').length;
+  const totalNoise = picks.reduce((acc, pick) => acc + (noiseValues[pick.choice] ?? 0), 0);
+  const blewLimit = room.limit_total != null && totalNoise > room.limit_total;
 
   for (const player of players as Player[]) {
     const pick = (picks as Pick[]).find((p) => p.player_id === player.id);
     if (!pick) continue;
     let delta = 0;
-    if (pick.choice === 'berry') delta = 1;
-    else if (pick.choice === 'mushroom') delta = 2;
-    else if (pick.choice === 'deer') delta = deerCount > 1 ? -1 : 3;
+
+    if (!blewLimit) {
+      if (pick.choice === 'berry') delta = 1;
+      else if (pick.choice === 'mushroom') delta = 2;
+      else if (pick.choice === 'deer') delta = deerCount > 1 ? -1 : 3;
+    } else {
+      if (pick.choice === 'berry') delta = 0;
+      else if (pick.choice === 'mushroom') delta = -1;
+      else if (pick.choice === 'deer') delta = deerCount > 1 ? -3 : -2;
+    }
 
     await supabase.from('players').update({ score: player.score + delta }).eq('id', player.id);
   }
 
   await supabase.from('rooms').update({ phase: 'reveal' }).eq('code', code);
 
-  return NextResponse.json({ ok: true, fallback: true });
+  return NextResponse.json({ ok: true, fallback: true, blewLimit, totalNoise });
 }
