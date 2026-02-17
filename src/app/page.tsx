@@ -27,9 +27,11 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roomName, playerName: hostName, playerId }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not create room');
-      router.push(`/room/${data.code}?name=${encodeURIComponent(hostName)}`);
+      const data = await parseMaybeJson(res);
+      if (!res.ok) {
+        throw new Error(typeof data === 'string' ? data : data?.error || 'Could not create room');
+      }
+      router.push(`/room/${typeof data === 'string' ? roomName.toUpperCase() : data.code}?name=${encodeURIComponent(hostName)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -47,8 +49,10 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playerName: joinName, playerId }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Unable to join room');
+      const data = await parseMaybeJson(res);
+      if (!res.ok) {
+        throw new Error(typeof data === 'string' ? data : data?.error || 'Unable to join room');
+      }
       router.push(`/room/${joinRoom}?name=${encodeURIComponent(joinName)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -127,4 +131,12 @@ export default function Home() {
       </div>
     </main>
   );
+}
+
+async function parseMaybeJson(res: Response) {
+  const contentType = res.headers.get('content-type');
+  if (contentType?.includes('application/json')) {
+    return res.json();
+  }
+  return res.text();
 }

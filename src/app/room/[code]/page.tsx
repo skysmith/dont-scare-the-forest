@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@/lib/supabase/browser';
@@ -11,19 +13,21 @@ export default function RoomPage({ params }: { params: { code: string } }) {
   const playerId = usePlayerId();
   const searchParams = useSearchParams();
   const nameParam = searchParams.get('name') || 'Player';
+
+  const codeParam = params?.code ?? '';
   const [room, setRoom] = useState<Room | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [picks, setPicks] = useState<Record<string, Pick>>({});
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const code = codeParam ? codeParam.toUpperCase() : '';
   const supabase = useMemo(() => createBrowserClient(), []);
-  const code = params.code.toUpperCase();
   const amHost = room?.host_id === playerId;
   const phase = room?.phase ?? 'lobby';
 
   useEffect(() => {
-    if (!playerId) return;
+    if (!playerId || !code) return;
     const joinRoom = async () => {
       await fetch(`/api/rooms/${code}/join`, {
         method: 'POST',
@@ -35,6 +39,7 @@ export default function RoomPage({ params }: { params: { code: string } }) {
   }, [playerId, code, nameParam]);
 
   useEffect(() => {
+    if (!code) return;
     const load = async () => {
       const [{ data: roomData }, { data: playerData }, { data: pickData }] = await Promise.all([
         supabase.from('rooms').select('*').eq('code', code).maybeSingle(),
@@ -94,6 +99,14 @@ export default function RoomPage({ params }: { params: { code: string } }) {
       body: JSON.stringify({ playerId, choice }),
     });
   };
+
+  if (!code) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-emerald-50 flex items-center justify-center">
+        <p>Room code missing.</p>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-emerald-950 via-slate-950 to-slate-950 text-emerald-50">
