@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { normalizeRoomName } from '@/lib/random';
@@ -20,6 +21,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ code: 
 
   const { error } = await supabase.from('picks').upsert(
     {
+      id: randomUUID(),
       room_code: code,
       round: room.round,
       player_id: playerId,
