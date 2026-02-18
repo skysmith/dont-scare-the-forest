@@ -31,6 +31,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ code: 
   const deerCount = picks.filter((p) => p.choice === 'deer').length;
   const totalNoise = picks.reduce((acc, pick) => acc + (noiseValues[pick.choice] ?? 0), 0);
   const blewLimit = room.limit_total != null && totalNoise > room.limit_total;
+  const updatedPlayers: Player[] = [];
 
   for (const player of players as Player[]) {
     const pick = (picks as Pick[]).find((p) => p.player_id === player.id);
@@ -47,10 +48,16 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ code: 
       else if (pick.choice === 'deer') delta = deerCount > 1 ? -3 : -2;
     }
 
-    await supabase.from('players').update({ score: player.score + delta }).eq('id', player.id);
+    const newScore = player.score + delta;
+    const { error: playerError } = await supabase.from('players').update({ score: newScore }).eq('id', player.id);
+    if (playerError) {
+      console.error('Failed to update score', playerError.message);
+    } else {
+      updatedPlayers.push({ ...player, score: newScore });
+    }
   }
 
   await supabase.from('rooms').update({ phase: 'reveal' }).eq('code', code);
 
-  return NextResponse.json({ ok: true, fallback: true, blewLimit });
+  return NextResponse.json({ ok: true, fallback: true, blewLimit, totalNoise, players: updatedPlayers });
 }
