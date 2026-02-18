@@ -37,6 +37,8 @@ export default function RoomClient({ code, displayName }: Props) {
     if (playerData) setPlayers(playerData as Player[]);
     if (pickData) setPicks(mapPicks(pickData as Pick[], roundRef.current));
   }, [normalizedCode, supabase]);
+  const noiseValue = (choice?: string) => (choice === 'berry' ? 1 : choice === 'mushroom' ? 2 : choice === 'deer' ? 3 : 0);
+  const totalNoise = Object.values(picks).reduce((sum, pick) => sum + noiseValue(pick.choice), 0);
   const amHost = room?.host_id === playerId;
   const phase = room?.phase ?? 'lobby';
   const playersReady = Object.keys(picks).length;
@@ -104,6 +106,12 @@ export default function RoomClient({ code, displayName }: Props) {
       const data = await res.json();
       setError(data.error || `Failed to ${path}`);
     } else {
+      if (path === 'start') {
+        setPicks({});
+        setRoom((prev) => (prev ? { ...prev, phase: 'picking' } : prev));
+      } else {
+        setRoom((prev) => (prev ? { ...prev, phase: 'reveal' } : prev));
+      }
       await fetchState();
     }
     setLoadingAction(null);
@@ -186,6 +194,9 @@ export default function RoomClient({ code, displayName }: Props) {
             <p className="text-sm uppercase tracking-[0.3em] text-emerald-400">Forest dice</p>
             <p className="text-3xl font-semibold text-amber-200">{room.dice.join(' · ')} <span className="text-sm text-emerald-300">= {diceTotal}</span></p>
             <p className="text-emerald-200">Scare limit: {room.limit_total}</p>
+            {phase !== 'picking' && (
+              <p className="text-emerald-100 text-sm">Forest noise: {totalNoise}{room.limit_total ? ` / ${room.limit_total}` : ''}</p>
+            )}
           </section>
         )}
 
